@@ -1,40 +1,44 @@
-name: Sync OpenWrt Packages
+name: Mirror OpenWrt Packages
 
 on:
   schedule:
-    # 每天凌晨2点自动同步
     - cron: '0 2 * * *'
-  workflow_dispatch: # 允许手动触发
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  sync-packages:
+  mirror:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout current repo
+    - name: Checkout with PAT
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        token: ${{ secrets.PAT_TOKEN }}
 
-    - name: Sync OpenWrt packages
+    - name: Configure Git
       run: |
-        # 设置git配置
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        
-        # 添加OpenWrt仓库作为远程仓库
-        git remote add openwrt-packages https://git.openwrt.org/feed/packages.git || true
-        
-        # 获取最新更改
-        git fetch openwrt-packages
-        
-        # 合并或重置到OpenWrt仓库
-        git merge openwrt-packages/master --allow-unrelated-histories || \
-        git reset --hard openwrt-packages/master
-        
-        # 如果有冲突，这里可以添加处理逻辑
-        
-    - name: Push changes
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+    - name: Mirror OpenWrt packages
       run: |
+        # 删除所有现有文件（除了.git目录）
+        find . -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} +
+        
+        # 克隆OpenWrt仓库到临时目录
+        git clone https://git.openwrt.org/feed/packages.git tmp-repo
+        
+        # 复制所有文件到当前目录
+        cp -r tmp-repo/* .
+        cp -r tmp-repo/.gitignore . 2>/dev/null || true
+        
+        # 清理临时目录
+        rm -rf tmp-repo
+        
+        # 添加所有文件到git
+        git add -A
+
+    - name: Commit and push
+      run: |
+        git commit -m "Auto-sync with OpenWrt packages $(date +%Y-%m-%d)" || echo "No changes to commit"
         git push origin main

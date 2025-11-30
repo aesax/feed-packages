@@ -9,20 +9,19 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout with PAT
+    - name: Checkout empty
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
         token: ${{ secrets.PAT_TOKEN }}
 
     - name: Configure Git
       run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Mirror OpenWrt packages
+    - name: Clone OpenWrt packages
       run: |
-        # 删除所有现有文件（除了.git目录）
+        # 删除当前目录所有内容（保留.git目录）
         find . -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} +
         
         # 克隆OpenWrt仓库到临时目录
@@ -30,15 +29,13 @@ jobs:
         
         # 复制所有文件到当前目录
         cp -r tmp-repo/* .
-        cp -r tmp-repo/.gitignore . 2>/dev/null || true
+        cp -r tmp-repo/.* . 2>/dev/null || true
         
-        # 清理临时目录
+        # 删除临时目录
         rm -rf tmp-repo
-        
-        # 添加所有文件到git
-        git add -A
 
-    - name: Commit and push
+    - name: Commit and push all changes
       run: |
+        git add -A
         git commit -m "Auto-sync with OpenWrt packages $(date +%Y-%m-%d)" || echo "No changes to commit"
-        git push origin main
+        git push --force origin main

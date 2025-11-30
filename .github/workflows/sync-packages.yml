@@ -1,0 +1,40 @@
+name: Sync OpenWrt Packages
+
+on:
+  schedule:
+    # 每天凌晨2点自动同步
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 允许手动触发
+  push:
+    branches: [ main ]
+
+jobs:
+  sync-packages:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout current repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Sync OpenWrt packages
+      run: |
+        # 设置git配置
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+        # 添加OpenWrt仓库作为远程仓库
+        git remote add openwrt-packages https://git.openwrt.org/feed/packages.git || true
+        
+        # 获取最新更改
+        git fetch openwrt-packages
+        
+        # 合并或重置到OpenWrt仓库
+        git merge openwrt-packages/master --allow-unrelated-histories || \
+        git reset --hard openwrt-packages/master
+        
+        # 如果有冲突，这里可以添加处理逻辑
+        
+    - name: Push changes
+      run: |
+        git push origin main
